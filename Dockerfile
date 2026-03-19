@@ -14,9 +14,10 @@ RUN apt install -y git libxkbcommon-dev libxinerama-dev libxcursor-dev libxi-dev
 # Unitree Mujoco
 WORKDIR /workspace/unitree_mujoco
 
-COPY . .
-
-#Build Mujoco
+COPY dependencies/ dependencies/
+COPY simulate/src/ simulate/src/
+COPY simulate/CMakeLists.txt simulate/CMakeLists.txt
+RUN ln -s /workspace/unitree_mujoco/dependencies/mujoco simulate/mujoco
 
 WORKDIR /workspace/unitree_mujoco/dependencies/mujoco/build
 
@@ -34,9 +35,7 @@ WORKDIR /workspace/unitree_mujoco/simulate/build
 
 RUN cmake .. && make -j$(( $(nproc) / 2 ))
 
-COPY entrypoint.sh /entrypoint.sh
-
-RUN chmod +x /entrypoint.sh
+RUN printf '#!/bin/bash\ncd /workspace/unitree_mujoco/simulate/build\nexec ./unitree_mujoco\n' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 CMD ["/entrypoint.sh"]
 
