@@ -1,3 +1,6 @@
 [submodule "dependencies/unitree_sdk2"]
 	path = dependencies/unitree_sdk2
 	url = https://github.com/unitreerobotics/unitree_sdk2
+[submodule "dependencies/unitree_mujoco"]
+	path = dependencies/unitree_mujoco
+	url = https://github.com/unitreerobotics/unitree_mujoco
