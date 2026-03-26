@@ -4,6 +4,8 @@ This is a streamlined version of the unitree_mujoco repository by unitree, built
 
 ## Usage
 ```
+git clone --recurse-submodules https://github.com/Abanesjo/unitree_mujoco
+cd unitree_mujoco
 ./build_and_run.sh
 ```
 
