@@ -7,3 +7,9 @@
 [submodule "dependencies/mujoco"]
 	path = dependencies/mujoco
 	url = https://github.com/google-deepmind/mujoco
+[submodule "dependencies/unitree_sdk2_python"]
+	path = dependencies/unitree_sdk2_python
+	url = https://github.com/unitreerobotics/unitree_sdk2_python
+[submodule "dependencies/cyclonedds"]
+	path = dependencies/cyclonedds
+	url = https://github.com/eclipse-cyclonedds/cyclonedds
