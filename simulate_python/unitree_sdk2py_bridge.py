@@ -8,8 +8,10 @@ from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelPublisher
 
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import WirelessController_
+from unitree_sdk2py.idl.geometry_msgs.msg.dds_ import PoseStamped_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__WirelessController_
+from unitree_sdk2py.idl.default import geometry_msgs_msg_dds__PoseStamped_
 from unitree_sdk2py.utils.thread import RecurrentThread
 
 import config
@@ -26,6 +28,8 @@ TOPIC_LOWCMD = "rt/lowcmd"
 TOPIC_LOWSTATE = "rt/lowstate"
 TOPIC_HIGHSTATE = "rt/sportmodestate"
 TOPIC_WIRELESS_CONTROLLER = "rt/wirelesscontroller"
+TOPIC_POSE_BASE = "rt/pose/base_link"
+TOPIC_POSE_PENDULUM_EE = "rt/pose/pendulum_ee"
 
 MOTOR_SENSOR_NUM = 3
 NUM_MOTOR_IDL_GO = 20
@@ -87,6 +91,25 @@ class UnitreeSdk2Bridge:
 
         self.low_cmd_suber = ChannelSubscriber(TOPIC_LOWCMD, LowCmd_)
         self.low_cmd_suber.Init(self.LowCmdHandler, 10)
+
+        # Pose publishers (only if bodies exist in the model)
+        self.pose_bodies = {}
+        for name, topic in [("base_link", TOPIC_POSE_BASE), ("pendulum_ee", TOPIC_POSE_PENDULUM_EE)]:
+            try:
+                body_id = self.mj_model.body(name).id
+                msg = geometry_msgs_msg_dds__PoseStamped_()
+                msg.header.frame_id = "world"
+                pub = ChannelPublisher(topic, PoseStamped_)
+                pub.Init()
+                self.pose_bodies[name] = (body_id, msg, pub)
+            except KeyError:
+                pass
+
+        if self.pose_bodies:
+            self.poseThread = RecurrentThread(
+                interval=self.dt, target=self.PublishPoses, name="sim_poses"
+            )
+            self.poseThread.Start()
 
         # joystick
         self.key_map = {
@@ -221,6 +244,24 @@ class UnitreeSdk2Bridge:
                 self.low_state.wireless_remote[20:24] = packs[3]
 
             self.low_state_puber.Write(self.low_state)
+
+    def PublishPoses(self):
+        if self.mj_data is None:
+            return
+        for name, (body_id, msg, pub) in self.pose_bodies.items():
+            pos = self.mj_data.xpos[body_id]
+            quat = self.mj_data.xquat[body_id]  # MuJoCo: [w, x, y, z]
+            sec = int(self.mj_data.time)
+            msg.header.stamp.sec = sec
+            msg.header.stamp.nanosec = int((self.mj_data.time - sec) * 1e9)
+            msg.pose.position.x = float(pos[0])
+            msg.pose.position.y = float(pos[1])
+            msg.pose.position.z = float(pos[2])
+            msg.pose.orientation.x = float(quat[1])
+            msg.pose.orientation.y = float(quat[2])
+            msg.pose.orientation.z = float(quat[3])
+            msg.pose.orientation.w = float(quat[0])
+            pub.Write(msg)
 
     def PublishHighState(self):
 
