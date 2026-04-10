@@ -9,9 +9,11 @@ from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelPublisher
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import SportModeState_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import WirelessController_
 from unitree_sdk2py.idl.geometry_msgs.msg.dds_ import PoseStamped_
+from unitree_sdk2py.idl.geometry_msgs.msg.dds_ import TwistStamped_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__WirelessController_
 from unitree_sdk2py.idl.default import geometry_msgs_msg_dds__PoseStamped_
+from unitree_sdk2py.idl.default import geometry_msgs_msg_dds__TwistStamped_
 from unitree_sdk2py.utils.thread import RecurrentThread
 
 import config
@@ -30,6 +32,8 @@ TOPIC_HIGHSTATE = "rt/sportmodestate"
 TOPIC_WIRELESS_CONTROLLER = "rt/wirelesscontroller"
 TOPIC_POSE_BASE = "rt/pose/base_link"
 TOPIC_POSE_PENDULUM_EE = "rt/pose/pendulum_ee"
+TOPIC_TWIST_BASE = "rt/twist/base_link"
+TOPIC_TWIST_PENDULUM_EE = "rt/twist/pendulum_ee"
 
 MOTOR_SENSOR_NUM = 3
 NUM_MOTOR_IDL_GO = 20
@@ -110,6 +114,25 @@ class UnitreeSdk2Bridge:
                 interval=self.dt, target=self.PublishPoses, name="sim_poses"
             )
             self.poseThread.Start()
+
+        # Twist publishers (only if bodies exist in the model)
+        self.twist_bodies = {}
+        for name, topic in [("base_link", TOPIC_TWIST_BASE), ("pendulum_ee", TOPIC_TWIST_PENDULUM_EE)]:
+            try:
+                body_id = self.mj_model.body(name).id
+                msg = geometry_msgs_msg_dds__TwistStamped_()
+                msg.header.frame_id = "world"
+                pub = ChannelPublisher(topic, TwistStamped_)
+                pub.Init()
+                self.twist_bodies[name] = (body_id, msg, pub)
+            except KeyError:
+                pass
+
+        if self.twist_bodies:
+            self.twistThread = RecurrentThread(
+                interval=self.dt, target=self.PublishTwists, name="sim_twists"
+            )
+            self.twistThread.Start()
 
         # joystick
         self.key_map = {
@@ -261,6 +284,23 @@ class UnitreeSdk2Bridge:
             msg.pose.orientation.y = float(quat[2])
             msg.pose.orientation.z = float(quat[3])
             msg.pose.orientation.w = float(quat[0])
+            pub.Write(msg)
+
+    def PublishTwists(self):
+        if self.mj_data is None:
+            return
+        for name, (body_id, msg, pub) in self.twist_bodies.items():
+            linvel = self.mj_data.cvel[body_id][3:]  # linear velocity
+            angvel = self.mj_data.cvel[body_id][:3]   # angular velocity
+            sec = int(self.mj_data.time)
+            msg.header.stamp.sec = sec
+            msg.header.stamp.nanosec = int((self.mj_data.time - sec) * 1e9)
+            msg.twist.linear.x = float(linvel[0])
+            msg.twist.linear.y = float(linvel[1])
+            msg.twist.linear.z = float(linvel[2])
+            msg.twist.angular.x = float(angvel[0])
+            msg.twist.angular.y = float(angvel[1])
+            msg.twist.angular.z = float(angvel[2])
             pub.Write(msg)
 
     def PublishHighState(self):
