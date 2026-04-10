@@ -12,4 +12,5 @@ docker run -it --rm --name unitree_mujoco --network host \
  -v $SCRIPT_DIR/simulate/config.yaml:/workspace/unitree_mujoco/simulate/config.yaml \
  -v $SCRIPT_DIR/unitree_robots:/workspace/unitree_mujoco/unitree_robots \
  -v $SCRIPT_DIR/terrain_tool:/workspace/unitree_mujoco/terrain_tool \
- unitree_mujoco:v1
+ unitree_mujoco:v1 \
+ bash -c "cd /workspace/unitree_mujoco/simulate_python && exec python3 unitree_mujoco.py"
