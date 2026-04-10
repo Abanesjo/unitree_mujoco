@@ -2,6 +2,12 @@ FROM nvidia/opengl:1.2-glvnd-runtime-ubuntu22.04
 
 RUN apt update && apt upgrade -y
 
+# unitree mujoco deps
+RUN apt install -y libyaml-cpp-dev libspdlog-dev libboost-all-dev libglfw3-dev 
+
+# unitree sdk deps
+RUN apt install -y wget cmake g++ build-essential libyaml-cpp-dev libeigen3-dev libspdlog-dev libfmt-dev 
+
 # Build tools (for CycloneDDS) + Python + OpenGL/X11 libs (for MuJoCo viewer)
 RUN apt install -y \
     cmake g++ build-essential \
